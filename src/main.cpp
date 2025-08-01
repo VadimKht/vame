@@ -129,9 +129,13 @@ int main(void)
                     )
                     )){
                         // Incorrect something is just wrong help it causes weird stutter-like effects on sliding across walls
+                        // Fix: Vector3Normalize uses wrong collissioNDirection. The object we touch is rectangle, so its one of:
+                        // {1,0,0}, {0,1,0} or {0,0,1}. But colisionDirection is calculated wrong
+                        // Now i wonoder, how do you make it a triangle or freely rotatable rectangle??? 
+                        // todo
                         Vector3 wallNormal = Vector3Normalize({colisionDirection.x, 0, colisionDirection.z});
                         if (Vector3Length(wallNormal) > 0.01f) {
-                            movedir = Vector3Subtract(movedir, Vector3Scale(wallNormal, -1));
+                            movedir = Vector3Subtract(movedir, Vector3Scale(wallNormal, Vector3DotProduct(movedir, wallNormal)));
                         }
                     }
 
