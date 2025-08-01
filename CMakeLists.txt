@@ -22,11 +22,10 @@ set(BUILD_GAMES OFF CACHE BOOL "Disable building raylib games" FORCE)
 # Add the raylib CMake project from the submodule directory.
 # This will create the 'raylib' library target for us to use.
 add_subdirectory(External/Submodules/raylib)
-add_subdirectory(External/Submodules/kcp)
 
 # --- Define Your Executable ---
 # Create an executable target named 'my_game' from your source file(s).
-add_executable(my_game src/main.cpp src/network.cpp)
+add_executable(my_game src/main.cpp)
 
 # --- Link Libraries ---
 # Link your executable against the raylib library.
@@ -38,7 +37,7 @@ add_executable(my_game src/main.cpp src/network.cpp)
 # Using 'PRIVATE' means that raylib is a dependency for building 'my_game',
 # but it is not a public dependency that other targets linking to 'my_game'
 # would inherit. For an executable, PRIVATE is almost always correct.
-target_link_libraries(my_game PRIVATE raylib PRIVATE kcp)
+target_link_libraries(my_game PRIVATE raylib)
 
 # --- (Optional) Set Output Directory ---
 # This is a nice quality-of-life improvement to place the final executable

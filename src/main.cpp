@@ -3,7 +3,6 @@
 #include <math.h>
 #include <cstring>
 #include <raymath.h>
-#include "network.h"
 
 
 char currentText[256];
@@ -34,7 +33,6 @@ bool CheckCollisionY(Vector3 pos1, Vector3 pos2, float size, float speed = 1.0){
 }
 int main(void)
 {
-    //InitializeNetwork();
     InitWindow(800, 450, "dashrun");
     Camera3D camera = { 0 };
     SetTargetFPS(30);

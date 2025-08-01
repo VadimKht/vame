@@ -1,1 +1,0 @@
-void InitializeNetwork();
