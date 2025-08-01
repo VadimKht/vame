@@ -116,16 +116,19 @@ int main(void)
 
                     //Vector3 coldir = Vector3Scale(Vector3Normalize(colisionDirection), speed);
 
-                    BoundingBox camobj = BoundingBox(
-                        camera.position, camera.position
-                    );
-
-                    BoundingBox bbobj = BoundingBox(
-                        Vector3Subtract(scene_Objects[i].Position, Vector3(scene_Objects[i].size/2)),
-                        Vector3Add(scene_Objects[i].Position, Vector3(scene_Objects[i].size/2))
-                    );
-                    if(CheckCollisionBoxes(camobj, bbobj)
-                    ){
+                    float sizeHalved = (scene_Objects[i].Position.x-scene_Objects[i].size)/2;
+                    if(
+                    CheckCollisionBoxes(
+                    BoundingBox(
+                        Vector3Subtract(camera.position, Vector3(1,1,1)),
+                        Vector3Add(camera.position, Vector3(1,1,1))
+                    ),
+                    BoundingBox(
+                        Vector3Subtract(scene_Objects[i].Position, Vector3(sizeHalved,sizeHalved,sizeHalved)),
+                        Vector3Add(scene_Objects[i].Position, Vector3(sizeHalved,sizeHalved,sizeHalved))
+                    )
+                    )){
+                        // Incorrect something is just wrong help it causes weird stutter-like effects on sliding across walls
                         Vector3 wallNormal = Vector3Normalize({colisionDirection.x, 0, colisionDirection.z});
                         if (Vector3Length(wallNormal) > 0.01f) {
                             movedir = Vector3Subtract(movedir, Vector3Scale(wallNormal, -1));
