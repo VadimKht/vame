@@ -47,7 +47,60 @@ typedef struct Object {
 	Vector3 size;
 	Color color;
 	bool IsMovingPlatform;
+	bool exists;
 } Object;
+
+void DrawLine3D(Vector3 startPos, Vector3 endPos, Color color, float thickness) {
+    Vector3 direction = Vector3Subtract(endPos, startPos);
+    float distance = Vector3Length(direction);
+    direction = Vector3Normalize(direction);
+    if (distance <= 0.0f)
+        return;
+    Vector3 up = {0.0f, 1.0f, 0.0f};
+    Vector3 rotationAxis = Vector3CrossProduct(direction, up);
+    if (Vector3LengthSqr(rotationAxis) < 0.0001f)
+        rotationAxis = Vector3CrossProduct(direction, (Vector3){1.0f, 0.0f, 0.0f});
+    rotationAxis = Vector3Normalize(rotationAxis);
+    float angle = acosf(Vector3DotProduct(up, direction)) * RAD2DEG;
+    Vector3 center = Vector3Scale(Vector3Add(startPos, endPos), 0.5f);
+    Vector3 size = {thickness, distance, thickness};
+    rlPushMatrix();
+    rlTranslatef(center.x, center.y, center.z);
+    rlRotatef(angle, rotationAxis.x, rotationAxis.y, rotationAxis.z);
+    DrawCube((Vector3){0}, thickness, distance, thickness, color);
+    rlPopMatrix();
+}
+
+void DrawCubeWiresV(Vector3 position, Vector3 size, Color color, float thickness = 0.1f) {
+    float x = position.x;
+    float y = position.y;
+    float z = position.z;
+    float halfWidth = size.x / 2.0f;
+    float halfHeight = size.y / 2.0f;
+    float halfLength = size.z / 2.0f;
+    Vector3 v1 = {x - halfWidth, y - halfHeight, z - halfLength};
+    Vector3 v2 = {x + halfWidth, y - halfHeight, z - halfLength};
+    Vector3 v3 = {x + halfWidth, y + halfHeight, z - halfLength};
+    Vector3 v4 = {x - halfWidth, y + halfHeight, z - halfLength};
+    Vector3 v5 = {x - halfWidth, y - halfHeight, z + halfLength};
+    Vector3 v6 = {x + halfWidth, y - halfHeight, z + halfLength};
+    Vector3 v7 = {x + halfWidth, y + halfHeight, z + halfLength};
+    Vector3 v8 = {x - halfWidth, y + halfHeight, z + halfLength};
+    DrawLine3D(v1, v2, color, thickness);
+    DrawLine3D(v2, v3, color, thickness);
+    DrawLine3D(v3, v4, color, thickness);
+    DrawLine3D(v4, v1, color, thickness);
+    DrawLine3D(v5, v6, color, thickness);
+    DrawLine3D(v6, v7, color, thickness);
+    DrawLine3D(v7, v8, color, thickness);
+    DrawLine3D(v8, v5, color, thickness);
+    DrawLine3D(v1, v5, color, thickness);
+    DrawLine3D(v2, v6, color, thickness);
+    DrawLine3D(v3, v7, color, thickness);
+    DrawLine3D(v4, v8, color, thickness);
+}
+bool movePlatforms = false;
+int succJumps = 0;
 
 int main(void) {
 	// initialization
@@ -72,17 +125,17 @@ int main(void) {
 	// scene setup
 	Object scene_Objects[32] = {
 		// Walls Spawn
-		{{0, 0, 0}, {20, 1, 20}, GRAY, false},
-		{{-10, 5, 0}, {1, 10, 20}, GRAY, false},
-		{{10, 5, 0}, {1, 10, 20}, GRAY, false},
-		{{0, 5, 10}, {20, 10, 1}, GRAY, false},
+		{{0, 0, 0}, {20, 1, 20}, BLACK, false, true},
+		{{-10.6, 5.6, 0}, {1, 10, 20}, BLACK, false, true},
+		{{10.6, 5.6, 0}, {1, 10, 20}, BLACK, false, true},
+		{{0, 5.6, 10}, {20, 10, 1}, BLACK, false, true},
 
 		// First platforms (Always same, yes)
 		// x -5 for left shifted 5 for right shifted
 		// z is distance, will be increasing with speed of them moving on their own
-		{{-5, 0, -20}, {5, 1, 5}, GRAY, true},
-		{{5, 0, -40}, {5, 1, 5}, GRAY, true},
-		{{5, 0, -60}, {5, 1, 5}, GRAY, true},
+		{{-5, 0, -20}, {5, 1, 5}, BLACK, true, true},
+		{{5, 0, -40}, {5, 1, 5}, BLACK, true, true},
+		{{5, 0, -60}, {5, 1, 5}, BLACK, true, true},
 	};
 	int objectCount = sizeof(scene_Objects) / sizeof(scene_Objects[0]);
 	int floorIndex = objectCount - 1;
@@ -97,9 +150,10 @@ int main(void) {
 	DisableCursor();
 
 	float time = 0.0f;
+	bool closeWindow = false;
 
 	// main loop
-	while (!WindowShouldClose()) {
+	while (!WindowShouldClose() && !closeWindow) {
 		float dt = GetFrameTime();
 		time += dt;
 
@@ -182,6 +236,8 @@ int main(void) {
 			}
 		}
 		// resolve Y
+
+		bool wasGrounded = isGrounded;
 		isGrounded = false;
 		camera.position.y += playerVelocity.y * dt;
 		playerBox.min.y += playerVelocity.y * dt;
@@ -196,14 +252,32 @@ int main(void) {
 					groundedOnObjectId = i;
 				}
 				playerVelocity.y = 0;
+				if(!movePlatforms && scene_Objects[i].IsMovingPlatform)
+				{
+					// delete spawn
+					scene_Objects[0] = {0};
+					scene_Objects[1] = {0};
+					scene_Objects[2] = {0};
+					scene_Objects[3] = {0};
+					movePlatforms = true;
+				};
 				break;
 			}
+		}
+				
+		if(movePlatforms && (!wasGrounded && isGrounded))
+		{
+			// for some reason sometimes when landing on an object player slides through it and it grounds and ungrounds player
+			// idk why but it makes counter go up
+			succJumps += 1;
+			printf("%d\n", succJumps);
 		}
 
 		// Update positions
 		for (int i = 0; i < objectCount; i++)
 		{
-			if(scene_Objects[i].IsMovingPlatform) scene_Objects[i].position.z += 10 * dt;
+			if(scene_Objects[i].IsMovingPlatform && movePlatforms) scene_Objects[i].position.z += 10 * dt;
+			if(scene_Objects[i].position.z >= 20) scene_Objects[i].position.z = -40;
 		}
 		// Very basic test way to make illusion of player moving with platforms
 		if(isGrounded && scene_Objects[groundedOnObjectId].IsMovingPlatform) camera.position.z += 10 * dt;
@@ -216,6 +290,7 @@ int main(void) {
 		light.position.z = cosf(time * TIME_SPIN_SPEED) * 40.0f;
 		UpdateLightValues(shader, light);
 		SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], &camera.position, SHADER_UNIFORM_VEC3);
+		if(camera.position.y <= -20) closeWindow = true;
 
 		// drawing
 		BeginDrawing();
@@ -227,9 +302,12 @@ int main(void) {
 			BeginShaderMode(shader);
 			{
 				for (int i = 0; i < objectCount; i++)
-					DrawCubeV(scene_Objects[i].position, scene_Objects[i].size, scene_Objects[i].color);
+					DrawCubeWiresV(scene_Objects[i].position, scene_Objects[i].size, scene_Objects[i].color, 0.4f);
 			}
 			EndShaderMode();
+
+			for (int i = 0; i < objectCount; i++)
+					DrawCubeV(scene_Objects[i].position, scene_Objects[i].size, WHITE);
 
 			// custom-shaderless stuff
 			// DrawGrid(200, 2.0f);
