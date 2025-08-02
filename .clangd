@@ -1,0 +1,16 @@
+# https://clangd.llvm.org/config
+CompileFlags: # fake
+    Add: [-DSLT_EDITOR]
+Completion:
+    AllScopes: Yes
+    ArgumentLists: None
+    # HeaderInsertion: Never
+Diagnostics:
+    UnusedIncludes: None
+    # Includes:
+    #     IgnoreHeader: PrecompHeader.h
+InlayHints:
+    Designators: No
+    Enabled: Yes
+    ParameterNames: No
+    DeducedTypes: No
