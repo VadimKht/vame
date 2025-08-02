@@ -39,12 +39,14 @@ Light CreateLight(LightType type, Vector3 position, Vector3 target, Color color,
 #define PLAYER_SPRINT_SPEED 16.0f
 #define PLAYER_JUMP_FORCE 7.0f
 #define GRAVITY -15.0f
+#define TIME_SPIN_SPEED 0.1f
 
 // scene object
 typedef struct Object {
 	Vector3 position;
 	Vector3 size;
 	Color color;
+	bool IsMovingPlatform;
 } Object;
 
 int main(void) {
@@ -57,24 +59,30 @@ int main(void) {
 
 	// player setup
 	Camera3D camera = {0};
-	camera.position = (Vector3){-10.0f, 4.0f, 0.0f};
+	camera.position = (Vector3){0.0f, 4.0f, 0.0f};
 	camera.up = (Vector3){0.0f, 1.0f, 0.0f};
 	camera.fovy = 70.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
 
 	Vector3 playerVelocity = {0};
 	bool isGrounded = false;
+	int groundedOnObjectId = NULL;
 	Vector2 cameraRotation = {0};
 
 	// scene setup
-	Object scene_Objects[] = {
-		{{10, 2.5f, 0}, {0.5f, 0.1f, 0.5f}, ORANGE},
-		{{0, 0, 10}, {2, 3.0f, 0.5f}, SKYBLUE},
-		{{10, 0, 10}, {2, 11.0f, 2}, SKYBLUE},
-		{{20, 0, 0}, {0.5f, 2.0f, 2}, PURPLE},
-		{{0, 0, 20}, {2, 1.0f, 0.5f}, PURPLE},
-		{{30, 0, 10}, {0.5f, 11.0f, 0.5f}, LIME},
-		{{0, -0.5f, 0}, {200, 1, 200}, GRAY},
+	Object scene_Objects[32] = {
+		// Walls Spawn
+		{{0, 0, 0}, {20, 1, 20}, GRAY, false},
+		{{-10, 5, 0}, {1, 10, 20}, GRAY, false},
+		{{10, 5, 0}, {1, 10, 20}, GRAY, false},
+		{{0, 5, 10}, {20, 10, 1}, GRAY, false},
+
+		// First platforms (Always same, yes)
+		// x -5 for left shifted 5 for right shifted
+		// z is distance, will be increasing with speed of them moving on their own
+		{{-5, 0, -20}, {5, 1, 5}, GRAY, true},
+		{{5, 0, -40}, {5, 1, 5}, GRAY, true},
+		{{5, 0, -60}, {5, 1, 5}, GRAY, true},
 	};
 	int objectCount = sizeof(scene_Objects) / sizeof(scene_Objects[0]);
 	int floorIndex = objectCount - 1;
@@ -84,7 +92,7 @@ int main(void) {
 	shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader, "viewPos");
 
 	// light point
-	Light light = CreateLight(LIGHT_POINT, (Vector3){0, 20, 0}, (Vector3){0, 0, 0}, WHITE, 1.2f, 0, shader);
+	Light light = CreateLight(LIGHT_POINT, (Vector3){0, 20, 0}, (Vector3){0, 0, 0}, WHITE, 0.8f, 0, shader);
 
 	DisableCursor();
 
@@ -183,18 +191,29 @@ int main(void) {
 			if (CheckCollisionBoxes(playerBox, objBox)) {
 				camera.position.y -= playerVelocity.y * dt;
 				if (playerVelocity.y < 0)
+				{
 					isGrounded = true;
+					groundedOnObjectId = i;
+				}
 				playerVelocity.y = 0;
 				break;
 			}
 		}
 
+		// Update positions
+		for (int i = 0; i < objectCount; i++)
+		{
+			if(scene_Objects[i].IsMovingPlatform) scene_Objects[i].position.z += 10 * dt;
+		}
+		// Very basic test way to make illusion of player moving with platforms
+		if(isGrounded && scene_Objects[groundedOnObjectId].IsMovingPlatform) camera.position.z += 10 * dt;
+
 		// camera target update
 		camera.target = Vector3Add(camera.position, forward);
 
 		// update light position & values
-		light.position.x = sinf(time) * 40.0f;
-		light.position.z = cosf(time) * 40.0f;
+		light.position.x = sinf(time * TIME_SPIN_SPEED) * 40.0f;
+		light.position.z = cosf(time * TIME_SPIN_SPEED) * 40.0f;
 		UpdateLightValues(shader, light);
 		SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], &camera.position, SHADER_UNIFORM_VEC3);
 
