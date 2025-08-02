@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "*.embeddedhtml": "html",
-        ".fantomasignore": "ignore",
-        "math.h": "c",
-        "cmath": "c"
-    }
-}

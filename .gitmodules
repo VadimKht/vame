@@ -1,3 +1,6 @@
 [submodule "External/Submodules/raylib"]
 	path = External/Submodules/raylib
 	url = https://github.com/raysan5/raylib
+[submodule "External/Submodules/kcp"]
+	path = External/Submodules/kcp
+	url = https://github.com/skywind3000/kcp
