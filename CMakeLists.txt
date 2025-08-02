@@ -19,7 +19,7 @@ target_include_directories(my_game
 		"External/Submodules/kcp"
 )
 target_link_libraries(my_game
-	PRIVATE SYSTEM
+	PRIVATE
 		raylib
 		kcp
 )
