@@ -136,9 +136,14 @@ int main(void) {
 		{{-5, 0, -20}, {5, 1, 5}, BLACK, true, true},
 		{{5, 0, -40}, {5, 1, 5}, BLACK, true, true},
 		{{5, 0, -60}, {5, 1, 5}, BLACK, true, true},
+		{{-5, 0, -80}, {5, 1, 5}, BLACK, true, true},
+		{{5, 0, -100}, {5, 1, 5}, BLACK, true, true},
+		{{-5, 0, -120}, {5, 1, 5}, BLACK, true, true},
+		{{-5, 0, -140}, {5, 1, 5}, BLACK, true, true},
 	};
 	int objectCount = sizeof(scene_Objects) / sizeof(scene_Objects[0]);
 	int floorIndex = objectCount - 1;
+	float PlatformMovingSpeed = 10;
 
 	// shaders (lighthing)
 	Shader shader = LoadShader("../Assets/Lighting.vs", "../Assets/Lighting.fs");
@@ -245,13 +250,19 @@ int main(void) {
 		for (int i = 0; i < objectCount; i++) {
 			BoundingBox objBox = {Vector3Subtract(scene_Objects[i].position, Vector3Scale(scene_Objects[i].size, 0.5f)), Vector3Add(scene_Objects[i].position, Vector3Scale(scene_Objects[i].size, 0.5f))};
 			if (CheckCollisionBoxes(playerBox, objBox)) {
-				camera.position.y -= playerVelocity.y * dt;
+				//camera.position.y -= playerVelocity.y * dt;
+
+				// if i dont add 0.001 then the player will be inside the floor which makes player stuck in floor >:()
+				camera.position.y = scene_Objects[i].position.y + scene_Objects[i].size.y/2+PLAYER_HEIGHT+0.001;
 				if (playerVelocity.y < 0)
 				{
 					isGrounded = true;
 					groundedOnObjectId = i;
 				}
 				playerVelocity.y = 0;
+
+				// Initial delete spawn when you jump on movable floor
+				// how do you think, should i just have a function for it instead?
 				if(!movePlatforms && scene_Objects[i].IsMovingPlatform)
 				{
 					// delete spawn
@@ -264,23 +275,28 @@ int main(void) {
 				break;
 			}
 		}
-				
-		if(movePlatforms && (!wasGrounded && isGrounded))
+		
+		// if player landed on a moving plawltform
+		if(movePlatforms && (wasGrounded  != isGrounded))
 		{
-			// for some reason sometimes when landing on an object player slides through it and it grounds and ungrounds player
-			// idk why but it makes counter go up
 			succJumps += 1;
-			printf("%d\n", succJumps);
+
+			// todo: stop plaltforms generate a room put a hitbox inside room which deletes platforms before and starts boss.
+			// the hitboxes will pop up as red translucent as warning
+			if(succJumps == 50) printf("Successful completion of challenge, boss time.\n");
+			PlatformMovingSpeed *= 1.02f;
 		}
 
 		// Update positions
 		for (int i = 0; i < objectCount; i++)
 		{
-			if(scene_Objects[i].IsMovingPlatform && movePlatforms) scene_Objects[i].position.z += 10 * dt;
-			if(scene_Objects[i].position.z >= 20) scene_Objects[i].position.z = -40;
+			// if standing on moving platform and the platforms started moving, move the object back
+			if(scene_Objects[i].IsMovingPlatform && movePlatforms) scene_Objects[i].position.z += PlatformMovingSpeed * dt;
+			// if object is too far, "respawn" it
+			if(scene_Objects[i].position.z >= 20) scene_Objects[i].position.z = -120;
 		}
 		// Very basic test way to make illusion of player moving with platforms
-		if(isGrounded && scene_Objects[groundedOnObjectId].IsMovingPlatform) camera.position.z += 10 * dt;
+		if(isGrounded && scene_Objects[groundedOnObjectId].IsMovingPlatform) camera.position.z += PlatformMovingSpeed * dt;
 
 		// camera target update
 		camera.target = Vector3Add(camera.position, forward);
