@@ -6,6 +6,7 @@
 
 // light configuration
 #define MAX_LIGHTS 4
+// #define DEBUG_PRINT_GARBAGE
 
 typedef enum {
 	LIGHT_DIRECTIONAL = 0,
@@ -40,6 +41,8 @@ Light CreateLight(LightType type, Vector3 position, Vector3 target, Color color,
 #define PLAYER_JUMP_FORCE 7.0f
 #define GRAVITY -15.0f
 #define TIME_SPIN_SPEED 0.1f
+#define RAD_TO_DEG_CONST 57.2958f
+#define FIRST_STAGE_JUMPS_GOAL 50
 
 // scene object
 typedef struct Object {
@@ -48,6 +51,7 @@ typedef struct Object {
 	Color color;
 	bool IsMovingPlatform;
 	bool exists;
+	Vector3 velocity;
 } Object;
 
 void DrawLine3D(Vector3 startPos, Vector3 endPos, Color color, float thickness) {
@@ -99,8 +103,101 @@ void DrawCubeWiresV(Vector3 position, Vector3 size, Color color, float thickness
     DrawLine3D(v3, v7, color, thickness);
     DrawLine3D(v4, v8, color, thickness);
 }
-bool movePlatforms = false;
+float dt = GetFrameTime();
+int stage = 0;
 int succJumps = 0;
+float PlatformMovingSpeed = 10;
+
+// scene setup
+Object scene_Objects[32] = {
+	// Walls Spawn
+	{{0, 0, 0}, {20, 1, 20}, BLACK, false, true},
+	{{-10.6, 5.6, 0}, {1, 10, 20}, BLACK, false, true},
+	{{10.6, 5.6, 0}, {1, 10, 20}, BLACK, false, true},
+	{{0, 5.6, 10}, {20, 10, 1}, BLACK, false, true},
+
+	// First platforms (Always same, yes)
+	// x -5 for left shifted 5 for right shifted
+	// z is distance, will be increasing with speed of them moving on their own
+	{{-5, 0, -20}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{5, 0, -40}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{5, 0, -60}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{-5, 0, -80}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{5, 0, -100}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{-5, 0, -120}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{-5, 0, -140}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{5, 0, -160}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+	{{-5, 0, -180}, {5, 1, 5}, BLACK, true, true, {0,0, PlatformMovingSpeed}},
+};
+
+// callback for current stage function
+typedef void (*StageFunction)(void *data);
+
+void ZeroStageCode(void* data)
+{
+	bool isOnMovingPlatform = ((bool*)data)[0];
+	// Initial delete spawn when you jump on movable floor
+	// how do you think, should i just have a function for it instead?
+	if(isOnMovingPlatform)
+	{
+		// delete spawn
+		scene_Objects[0] = {0};
+		scene_Objects[1] = {0};
+		scene_Objects[2] = {0};
+		scene_Objects[3] = {0};
+		stage = 1;
+		succJumps += 1;
+	};
+};
+void FirstStageCode(void* data)
+{
+	char* dataVals = (char*)data;
+	bool playerLanded = (bool)(dataVals[0]);
+	int objectCount = *(int*)(dataVals+1);
+	// if player landed on a moving plawltform
+	if(playerLanded)
+	{
+		succJumps += 1;
+
+		// todo: stop plaltforms generate a room put a hitbox inside room which deletes platforms before and starts boss.
+		// the hitboxes will pop up as red translucent as warning
+		if(succJumps == FIRST_STAGE_JUMPS_GOAL) 
+		{
+			printf("Successful completion of challenge, boss time.\n");
+			stage = 2;
+		};
+		PlatformMovingSpeed *= 1.02f;
+	}
+
+	// Update positions
+	for (int i = 0; i < objectCount; i++)
+	{
+		// if standing on moving platform and the platforms started moving, move the object back
+		if(scene_Objects[i].IsMovingPlatform) scene_Objects[i].position.z += scene_Objects[i].velocity.z * dt;
+		// if object is too far, "respawn" it
+		if(scene_Objects[i].position.z >= 10 && scene_Objects[i].IsMovingPlatform) {
+			scene_Objects[i].position.z = -180;
+			scene_Objects[i].velocity.z = PlatformMovingSpeed;
+		}
+	}
+}
+
+void SecondStageCode(void* data)
+{
+	
+}
+
+unsigned short int CalculateHopsTextColor(){
+	// color step
+	const float step = 255/FIRST_STAGE_JUMPS_GOAL;
+	unsigned char R = 255-(step*succJumps);
+	unsigned char G = succJumps * step;
+#ifdef DEBUG_PRINT_GARBAGE
+	printf("red should be %u green should be %u\n",R,G);
+#endif
+	return (R<<8)+G;
+}
+
 
 int main(void) {
 	// initialization
@@ -119,31 +216,11 @@ int main(void) {
 
 	Vector3 playerVelocity = {0};
 	bool isGrounded = false;
-	int groundedOnObjectId = NULL;
+	int groundedOnObjectId = 0;
 	Vector2 cameraRotation = {0};
 
-	// scene setup
-	Object scene_Objects[32] = {
-		// Walls Spawn
-		{{0, 0, 0}, {20, 1, 20}, BLACK, false, true},
-		{{-10.6, 5.6, 0}, {1, 10, 20}, BLACK, false, true},
-		{{10.6, 5.6, 0}, {1, 10, 20}, BLACK, false, true},
-		{{0, 5.6, 10}, {20, 10, 1}, BLACK, false, true},
-
-		// First platforms (Always same, yes)
-		// x -5 for left shifted 5 for right shifted
-		// z is distance, will be increasing with speed of them moving on their own
-		{{-5, 0, -20}, {5, 1, 5}, BLACK, true, true},
-		{{5, 0, -40}, {5, 1, 5}, BLACK, true, true},
-		{{5, 0, -60}, {5, 1, 5}, BLACK, true, true},
-		{{-5, 0, -80}, {5, 1, 5}, BLACK, true, true},
-		{{5, 0, -100}, {5, 1, 5}, BLACK, true, true},
-		{{-5, 0, -120}, {5, 1, 5}, BLACK, true, true},
-		{{-5, 0, -140}, {5, 1, 5}, BLACK, true, true},
-	};
 	int objectCount = sizeof(scene_Objects) / sizeof(scene_Objects[0]);
 	int floorIndex = objectCount - 1;
-	float PlatformMovingSpeed = 10;
 
 	// shaders (lighthing)
 	Shader shader = LoadShader("../Assets/Lighting.vs", "../Assets/Lighting.fs");
@@ -156,18 +233,24 @@ int main(void) {
 
 	float time = 0.0f;
 	bool closeWindow = false;
+	StageFunction stagefns[] = {ZeroStageCode, FirstStageCode, SecondStageCode};
+	// 8 byte data for stage based code, basically argument for callback function
+	char data[8] = {0};
+
+	// text for data about jumps 
+	unsigned short int hopsInfo = 0;
 
 	// main loop
 	while (!WindowShouldClose() && !closeWindow) {
-		float dt = GetFrameTime();
+		dt = GetFrameTime();
 		time += dt;
 
 		// input
 		Vector2 mouseDelta = GetMouseDelta();
 		cameraRotation.x -= mouseDelta.x * MOUSE_SENSITIVITY; // yaw
 		cameraRotation.y -= mouseDelta.y * MOUSE_SENSITIVITY; // pitch
-
-		const float pitchLimit = 1.55f; // Approx 89 degrees
+		
+		const float pitchLimit = 89/RAD_TO_DEG_CONST; // constrain below 90 to avoid bugs
 		if (cameraRotation.y > pitchLimit)
 			cameraRotation.y = pitchLimit;
 		if (cameraRotation.y < -pitchLimit)
@@ -199,6 +282,7 @@ int main(void) {
 			moveDir = Vector3Normalize(moveDir);
 		}
 
+		// TO DO: are you sure about that? quake style would be cooler due to bunnyhop
 		float currentSpeed = IsKeyDown(KEY_LEFT_SHIFT) ? PLAYER_SPRINT_SPEED : PLAYER_SPEED;
 		Vector3 desiredMove = Vector3Scale(moveDir, currentSpeed);
 
@@ -215,7 +299,7 @@ int main(void) {
 			{camera.position.x + PLAYER_WIDTH / 2, camera.position.y, camera.position.z + PLAYER_WIDTH / 2}};
 
 		// resolve X
-		camera.position.x += desiredMove.x * dt;
+		camera.position.x += playerVelocity.x + desiredMove.x * dt;
 		playerBox.min.x += desiredMove.x * dt;
 		playerBox.max.x += desiredMove.x * dt;
 		for (int i = 0; i < objectCount; i++) {
@@ -227,6 +311,7 @@ int main(void) {
 				break;
 			}
 		}
+
 		// resolve Z
 		camera.position.z += desiredMove.z * dt;
 		playerBox.min.z += desiredMove.z * dt;
@@ -240,8 +325,8 @@ int main(void) {
 				break;
 			}
 		}
-		// resolve Y
 
+		// resolve Y
 		bool wasGrounded = isGrounded;
 		isGrounded = false;
 		camera.position.y += playerVelocity.y * dt;
@@ -260,43 +345,35 @@ int main(void) {
 					groundedOnObjectId = i;
 				}
 				playerVelocity.y = 0;
-
-				// Initial delete spawn when you jump on movable floor
-				// how do you think, should i just have a function for it instead?
-				if(!movePlatforms && scene_Objects[i].IsMovingPlatform)
-				{
-					// delete spawn
-					scene_Objects[0] = {0};
-					scene_Objects[1] = {0};
-					scene_Objects[2] = {0};
-					scene_Objects[3] = {0};
-					movePlatforms = true;
-				};
 				break;
 			}
 		}
 		
-		// if player landed on a moving plawltform
-		if(movePlatforms && (wasGrounded  != isGrounded))
+		// changes data based by current stage!. unsure if i can make it out of ingame loop?
+		switch (stage)
 		{
-			succJumps += 1;
-
-			// todo: stop plaltforms generate a room put a hitbox inside room which deletes platforms before and starts boss.
-			// the hitboxes will pop up as red translucent as warning
-			if(succJumps == 50) printf("Successful completion of challenge, boss time.\n");
-			PlatformMovingSpeed *= 1.02f;
+			case 0:
+				data[0] = scene_Objects[groundedOnObjectId].IsMovingPlatform;
+				break;
+			case 1:
+				data[0] = (wasGrounded != isGrounded);
+				*((int*)(data+1)) = objectCount;
+				break;
+			default:
+				break;
 		}
 
-		// Update positions
-		for (int i = 0; i < objectCount; i++)
+		if(stage >= sizeof(stagefns)/sizeof(stagefns[0]))
 		{
-			// if standing on moving platform and the platforms started moving, move the object back
-			if(scene_Objects[i].IsMovingPlatform && movePlatforms) scene_Objects[i].position.z += PlatformMovingSpeed * dt;
-			// if object is too far, "respawn" it
-			if(scene_Objects[i].position.z >= 20) scene_Objects[i].position.z = -120;
+			printf("Current stage function IS NOT implemented! crashing immediately rn....\n");
+			closeWindow = true;
+			continue;
 		}
-		// Very basic test way to make illusion of player moving with platforms
-		if(isGrounded && scene_Objects[groundedOnObjectId].IsMovingPlatform) camera.position.z += PlatformMovingSpeed * dt;
+		stagefns[stage](data);
+
+		// Move camera same way as velocity of object it stands on
+		if(isGrounded && scene_Objects[groundedOnObjectId].IsMovingPlatform) 
+			camera.position = Vector3Add(camera.position, Vector3Scale(scene_Objects[groundedOnObjectId].velocity, dt));
 
 		// camera target update
 		camera.target = Vector3Add(camera.position, forward);
@@ -333,6 +410,16 @@ int main(void) {
 
 		// draw UI
 		DrawFPS(10, 10);
+
+		// Draw jumps!
+		hopsInfo = CalculateHopsTextColor();
+		constexpr int RMask = 0xFF00;
+		constexpr int GMask = 0x00FF;
+#ifdef DEBUG_PRINT_GARBAGE
+		printf("%x %x\n", (hopsInfo&RMask)>>8, hopsInfo&GMask);
+#endif
+		DrawText(TextFormat("%d", succJumps), 10, 40, 64, (Color){(unsigned char)((hopsInfo&RMask)>>8), (unsigned char)((hopsInfo&GMask)), 0, 255});
+
 		// crosshair
 		DrawLine(screenWidth / 2, screenHeight / 2 - 10, screenWidth / 2, screenHeight / 2 + 10, RAYWHITE);
 		DrawLine(screenWidth / 2 - 10, screenHeight / 2, screenWidth / 2 + 10, screenHeight / 2, RAYWHITE);
