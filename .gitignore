@@ -1,3 +1,9 @@
 # directories
 .cache
 build
+
+.vs/
+out/
+build/
+bin/
+obj/

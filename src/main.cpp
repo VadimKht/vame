@@ -63,7 +63,7 @@ void DrawLine3D(Vector3 startPos, Vector3 endPos, Color color, float thickness) 
     Vector3 up = {0.0f, 1.0f, 0.0f};
     Vector3 rotationAxis = Vector3CrossProduct(direction, up);
     if (Vector3LengthSqr(rotationAxis) < 0.0001f)
-        rotationAxis = Vector3CrossProduct(direction, (Vector3){1.0f, 0.0f, 0.0f});
+        rotationAxis = Vector3CrossProduct(direction, Vector3(1.0f, 0.0f, 0.0f));
     rotationAxis = Vector3Normalize(rotationAxis);
     float angle = acosf(Vector3DotProduct(up, direction)) * RAD2DEG;
     Vector3 center = Vector3Scale(Vector3Add(startPos, endPos), 0.5f);
@@ -71,7 +71,7 @@ void DrawLine3D(Vector3 startPos, Vector3 endPos, Color color, float thickness) 
     rlPushMatrix();
     rlTranslatef(center.x, center.y, center.z);
     rlRotatef(angle, rotationAxis.x, rotationAxis.y, rotationAxis.z);
-    DrawCube((Vector3){0}, thickness, distance, thickness, color);
+	DrawCube(Vector3(0), thickness, distance, thickness, color);
     rlPopMatrix();
 }
 
@@ -209,8 +209,8 @@ int main(void) {
 
 	// player setup
 	Camera3D camera = {0};
-	camera.position = (Vector3){0.0f, 4.0f, 0.0f};
-	camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+	camera.position = Vector3(0.0f, 4.0f, 0.0f);
+	camera.up = Vector3(0.0f, 1.0f, 0.0f);
 	camera.fovy = 70.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
 
@@ -227,7 +227,7 @@ int main(void) {
 	shader.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(shader, "viewPos");
 
 	// light point
-	Light light = CreateLight(LIGHT_POINT, (Vector3){0, 20, 0}, (Vector3){0, 0, 0}, WHITE, 0.8f, 0, shader);
+	Light light = CreateLight(LIGHT_POINT, Vector3(0, 20, 0), Vector3(0, 0, 0), WHITE, 0.8f, 0, shader);
 
 	DisableCursor();
 
@@ -258,13 +258,13 @@ int main(void) {
 
 		// update
 		// camera rotation calculations
-		Quaternion qYaw = QuaternionFromAxisAngle((Vector3){0, 1, 0}, cameraRotation.x);
-		Quaternion qPitch = QuaternionFromAxisAngle((Vector3){1, 0, 0}, cameraRotation.y);
+		Quaternion qYaw = QuaternionFromAxisAngle(Vector3(0, 1, 0), cameraRotation.x);
+		Quaternion qPitch = QuaternionFromAxisAngle(Vector3(1, 0, 0), cameraRotation.y);
 		Quaternion qRot = QuaternionMultiply(qYaw, qPitch);
 
 		// movement vectors calculation
-		Vector3 forward = Vector3RotateByQuaternion((Vector3){0, 0, -1}, qRot);
-		Vector3 right = Vector3RotateByQuaternion((Vector3){1, 0, 0}, qRot);
+		Vector3 forward = Vector3RotateByQuaternion(Vector3(0, 0, -1), qRot);
+		Vector3 right = Vector3RotateByQuaternion(Vector3(1, 0, 0), qRot);
 
 		// get movement input
 		Vector3 moveDir = {0};
@@ -418,7 +418,7 @@ int main(void) {
 #ifdef DEBUG_PRINT_GARBAGE
 		printf("%x %x\n", (hopsInfo&RMask)>>8, hopsInfo&GMask);
 #endif
-		DrawText(TextFormat("%d", succJumps), 10, 40, 64, (Color){(unsigned char)((hopsInfo&RMask)>>8), (unsigned char)((hopsInfo&GMask)), 0, 255});
+		DrawText(TextFormat("%d", succJumps), 10, 40, 64, Color {(unsigned char)((hopsInfo&RMask)>>8), (unsigned char)((hopsInfo&GMask)), 0, 255});
 
 		// crosshair
 		DrawLine(screenWidth / 2, screenHeight / 2 - 10, screenWidth / 2, screenHeight / 2 + 10, RAYWHITE);
